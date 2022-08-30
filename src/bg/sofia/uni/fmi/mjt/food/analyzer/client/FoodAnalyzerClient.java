@@ -25,9 +25,10 @@ import org.apache.commons.io.FileUtils;
 public class FoodAnalyzerClient {
     private static String HOST = "localhost";
     private static int PORT = 8080;
+    private static String filename = "resources/products.txt";
 
-    public static void main(String[] args) {
-        PrintWriter writer = null;
+    public static void execute() {
+        //PrintWriter writer = null;
         try (Scanner scanner = new Scanner(System.in)) {
             /*Socket socket = new Socket(HOST, PORT);
             writer = new PrintWriter(socket.getOutputStream(), true);*/
@@ -39,15 +40,15 @@ public class FoodAnalyzerClient {
                 String[] splitInput = input.split(" ");
                 String command = splitInput[0];
 
-                if (command.equals("disconnect") || command.equals("quit")) {
+                if (command.equalsIgnoreCase("disconnect") || command.equalsIgnoreCase("quit")) {
                     //writer.println(input);
                     break;
                 } else if (command.equals("get-food") || command.equals("get-food-report") ||
-                command.equals("get-food-by-barcode")) {
+                    command.equals("get-food-by-barcode")) {
                     if (splitInput.length < 2) {
                         System.out.println("Not enough arguments were passed");
                     } else {
-                        FoodAnalyzerServer.startServer(input);
+                        FoodAnalyzerServer.startServer(input, filename);
                     }
                 } else {
                     System.out.println("Invalid command");
@@ -56,5 +57,9 @@ public class FoodAnalyzerClient {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void main(String[] args) {
+        execute();
     }
 }

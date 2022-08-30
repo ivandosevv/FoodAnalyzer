@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public final class FoodCache {
+public class FoodCache {
     private static final String CACHE_PATH = "resources/products.txt";
 
     private FoodCache() {
@@ -27,7 +27,7 @@ public final class FoodCache {
             System.err.println("Could not find " + CACHE_PATH);
         }
 
-        List<FoodProduct> foodsResult = new ArrayList<>();
+        //List<FoodProduct> foodsResult = new ArrayList<>();
 
         for (String line: linesResult) {
             String[] splitLine = line.split("&&");

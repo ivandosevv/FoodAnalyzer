@@ -35,50 +35,45 @@ public class FoodAnalyzerServer {
 
     private static List<FoodProduct> foodsCache = new ArrayList<>();
 
-    public static void startServer(String input) {
+    public static FoodQueryReport startServer(String input, String filename) {
         String[] splitInput = input.split(" ");
         String command = splitInput[0];
         splitInput = removeFirstElement(splitInput);
 
         String validInfoAboutProduct;
-        if (command.toLowerCase().equals("get-food-by-barcode")) {
+        if (command.equalsIgnoreCase("get-food-by-barcode")) {
             String[] gtinUpcArray = new String[1];
             gtinUpcArray[0] = splitInput[0].split("=")[1];
-            validInfoAboutProduct = getInfoAboutProduct(gtinUpcArray);
+            validInfoAboutProduct = getInfoAboutProduct(gtinUpcArray, filename);
         } else {
-            validInfoAboutProduct = getInfoAboutProduct(splitInput);
+            validInfoAboutProduct = getInfoAboutProduct(splitInput, filename);
         }
 
         if (!validInfoAboutProduct.equals("")) {
             System.out.println(validInfoAboutProduct);
-            return;
+            return null;
         }
 
         FoodCache.loadCache(foodsCache);
         try (ServerSocket serverSocket = new ServerSocket(8080)) {
-            System.out.println("SUCCESS!!");
-
+            //System.out.println("SUCCESS!!");
 
             //Socket socket = serverSocket.accept();
 
             switch (command.toLowerCase()) {
-                case "get-food":
-                    getFoodByName(splitInput);
-                    break;
-                case "get-food-report":
-                    getFoodReport(splitInput);
-                    break;
-                case "get-food-by-barcode":
-                    getFoodByBarcode(splitInput);
-                    break;
+                case "get-food": { return getFoodByName(splitInput, filename); }
+                case "get-food-report": { return getFoodReport(splitInput, filename); }
+                case "get-food-by-barcode": { return getFoodByBarcode(splitInput, filename); }
             }
 
         } catch (IOException e) {
             System.err.println("Invalid input! Enter a valid command!");
         }
+
+        return null;
     }
 
-    private static void getFoodByName(String[] input) {
+    private static FoodQueryReport getFoodByName(String[] input, String filename) {
         String foodName = String.join(DELIMITER, input);
 
         String resultUrl = String.format(urlByFoodName, foodName);
@@ -86,24 +81,31 @@ public class FoodAnalyzerServer {
         FoodQueryReport result = HttpRequestFood.GetFoodProduct(resultUrl);
 
         for (FoodProduct curr : result.getFoods()) {
-            addNewProduct(curr);
+            addNewProduct(curr, filename);
             System.out.println(curr.humanReadable());
         }
+
+        return result;
     }
 
-    private static void getFoodReport(String[] input) {
+    private static FoodQueryReport getFoodReport(String[] input, String filename) {
         String fdcId = input[0];
 
         String resultUrl = String.format(urlByFdcId, fdcId);
 
         FoodProduct result = HttpRequestFood.GetFoodProductById(resultUrl);
 
-        addNewProduct(result);
+        addNewProduct(result, filename);
         System.out.println(result.humanReadable());
 
+        List<FoodProduct> foods = new ArrayList<>();
+        foods.add(result);
+        return new FoodQueryReport(foods);
     }
 
-    private static void getFoodByBarcode(String[] input) {
+    private static FoodQueryReport getFoodByBarcode(String[] input, String filename) {
+        FoodQueryReport result = new FoodQueryReport();
+
         if (input.length > 1) {
 
         } else {
@@ -112,10 +114,12 @@ public class FoodAnalyzerServer {
                 try {
                     String imageUrl = input[0].substring(6);
                     File file = null;
-                    if (properInput.length > 2) {
+                    if (properInput[1].substring(0,5).equalsIgnoreCase("https")) {
                         //We're using an online link
-                        URL currUrl = new URL(imageUrl);
-                        FileUtils.copyURLToFile(currUrl, file);
+                        URL url = new URL(imageUrl);
+                        BufferedImage img = ImageIO.read(url);
+                        file = new File("resources/barcode.gif");
+                        ImageIO.write(img, "gif", file);
                     } else {
                         file = new File(imageUrl);
                     }
@@ -128,10 +132,10 @@ public class FoodAnalyzerServer {
                         String resultUrl = String.format(urlByGtinUpc, decodedText);
                         System.out.println(resultUrl);
 
-                        FoodQueryReport result = HttpRequestFood.GetFoodProduct(resultUrl);
+                        result = HttpRequestFood.GetFoodProduct(resultUrl);
 
                         for (FoodProduct curr : result.getFoods()) {
-                            addNewProduct(curr);
+                            addNewProduct(curr, filename);
                             System.out.println(curr.humanReadable());
                         }
                     }
@@ -143,14 +147,16 @@ public class FoodAnalyzerServer {
 
                 String resultUrl = String.format(urlByFoodName, gtinUpc);
 
-                FoodQueryReport result = HttpRequestFood.GetFoodProduct(resultUrl);
+                result = HttpRequestFood.GetFoodProduct(resultUrl);
 
                 for (FoodProduct curr : result.getFoods()) {
-                    addNewProduct(curr);
+                    addNewProduct(curr, filename);
                     System.out.println(curr.humanReadable());
                 }
             }
         }
+
+        return result;
     }
 
     private static String[] removeFirstElement(String[] myArr) {
@@ -177,8 +183,8 @@ public class FoodAnalyzerServer {
         }
     }
 
-    public static void addNewProduct(FoodProduct foodProduct) {
-        try (FileWriter writer = new FileWriter("resources/products.txt", true)) {
+    public static FoodProduct addNewProduct(FoodProduct foodProduct, String filename) {
+        try (FileWriter writer = new FileWriter(filename, true)) {
             synchronized (writer) {
                 foodsCache.add(foodProduct);
                 writer.write(foodProduct.toString());
@@ -188,10 +194,12 @@ public class FoodAnalyzerServer {
         } catch (IOException e) {
             System.err.println("Could not read given file.");
         }
+
+        return foodProduct;
     }
 
-    public static String getInfoAboutProduct(String[] keyWords) {
-        try (BufferedReader reader = new BufferedReader(new FileReader("resources/products.txt"))) {
+    public static String getInfoAboutProduct(String[] keyWords, String filename) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line = reader.readLine();
             while (line != null) {
                 boolean containsFdcId = true;
@@ -227,8 +235,6 @@ public class FoodAnalyzerServer {
 
                 line = reader.readLine();
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
