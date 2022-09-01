@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,15 +29,16 @@ public class FoodCache {
         //List<FoodProduct> foodsResult = new ArrayList<>();
 
         for (String line: linesResult) {
+            int index = 0;
             String[] splitLine = line.split("&&");
-            int fdcId = Integer.parseInt(splitLine[0]);
-            String description = splitLine[1];
-            String dataType = splitLine[2];
-            String gtinUpc = splitLine[3];
-            String publishedDate = splitLine[4];
-            String brandOwner = splitLine[5];
-            String ingredients = splitLine[6];
-            double score = Double.parseDouble(splitLine[7]);
+            int fdcId = Integer.parseInt(splitLine[index++]);
+            String description = splitLine[index++];
+            String dataType = splitLine[index++];
+            String gtinUpc = splitLine[index++];
+            String publishedDate = splitLine[index++];
+            String brandOwner = splitLine[index++];
+            String ingredients = splitLine[index++];
+            double score = Double.parseDouble(splitLine[index++]);
 
             FoodProduct currFood = new FoodProduct(fdcId, description, dataType, gtinUpc, publishedDate, brandOwner,
                 ingredients, score);

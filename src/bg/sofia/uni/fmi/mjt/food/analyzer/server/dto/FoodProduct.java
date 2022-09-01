@@ -103,12 +103,21 @@ public class FoodProduct {
             "&&" + brandOwner +
             "&&" + ingredients +
             "&&" + score +
-             System.lineSeparator().toString();
+            System.lineSeparator();
     }
 
     public String humanReadable() {
-        return String.format("{\n\tfdcId: %d\n\tdescription: %s\n\tgtinUpc: %s\n\tpublishedDate: %s\n\t" +
-            "brandOwner: %s\n\tingredients: %s\n\tscore: %.2f\n}\n", fdcId, description, gtinUpc, publishedDate,
+        return String.format("""
+                {
+                \tfdcId: %d
+                \tdescription: %s
+                \tgtinUpc: %s
+                \tpublishedDate: %s
+                \tbrandOwner: %s
+                \tingredients: %s
+                \tscore: %.2f
+                }
+                """, fdcId, description, gtinUpc, publishedDate,
             brandOwner, ingredients, score);
     }
 }

@@ -13,7 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class HttpRequestFood {
-    public static FoodQueryReport GetFoodProduct(String productUrl) {
+    public static FoodQueryReport getFoodProduct(String productUrl) {
         HttpClient client = HttpClient.newHttpClient();
 
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(productUrl)).build();
@@ -23,15 +23,15 @@ public class HttpRequestFood {
             System.out.println(jsonResponse);
             Gson gson = new Gson();
 
-            FoodQueryReport result = gson.fromJson(jsonResponse, new TypeToken<FoodQueryReport>(){}.getType());
+            FoodQueryReport result = gson.fromJson(jsonResponse, new TypeToken<FoodQueryReport>() { }.getType());
 
             return result;
-        } catch (IOException|InterruptedException e) {
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static FoodProduct GetFoodProductById(String productUrl) {
+    public static FoodProduct getFoodProductById(String productUrl) {
         HttpClient client = HttpClient.newHttpClient();
 
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(productUrl)).build();
@@ -41,12 +41,12 @@ public class HttpRequestFood {
             System.out.println(jsonResponse);
             Gson gson = new Gson();
 
-            FoodProduct result = gson.fromJson(jsonResponse, new TypeToken<FoodProduct>(){}.getType());
-            SingleProductInfo info = gson.fromJson(jsonResponse, new TypeToken<SingleProductInfo>(){}.getType());
+            FoodProduct result = gson.fromJson(jsonResponse, new TypeToken<FoodProduct>() { }.getType());
+            SingleProductInfo info = gson.fromJson(jsonResponse, new TypeToken<SingleProductInfo>() { }.getType());
             result.setPublishedDate(info.getPublicationDate());
 
             return result;
-        } catch (IOException|InterruptedException e) {
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

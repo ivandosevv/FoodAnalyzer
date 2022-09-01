@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class FoodQueryReport {
-    private List<FoodProduct> foods;
+    private final List<FoodProduct> foods;
 
     public FoodQueryReport() {
         super();

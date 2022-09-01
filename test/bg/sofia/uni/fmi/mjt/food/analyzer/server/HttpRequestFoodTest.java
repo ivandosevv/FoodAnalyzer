@@ -24,7 +24,7 @@ public class HttpRequestFoodTest {
         String expectedPublicationDate = "2021-10-28";
         double expectedScore = 573.2873;
 
-        FoodQueryReport result = HttpRequestFood.GetFoodProduct(url);
+        FoodQueryReport result = HttpRequestFood.getFoodProduct(url);
 
         assertEquals(result.getFoods().size(), expected);
 
@@ -54,7 +54,7 @@ public class HttpRequestFoodTest {
         String expectedPublicationDate = "2021-10-28";
         double expectedScore = 573.2873;
 
-        FoodProduct result = HttpRequestFood.GetFoodProductById(url);
+        FoodProduct result = HttpRequestFood.getFoodProductById(url);
 
         assertEquals(result.getFdcId(), expectedFdcId);
 
