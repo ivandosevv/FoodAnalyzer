@@ -26,7 +26,7 @@ import java.util.List;
 
 public class FoodAnalyzerServer {
     private static final String DELIMITER = "%20";
-    private static final String API_KEY = "b6S0aW1Vi3qc0LCVcmGxhjKTbmcrsIAZPMGA6X8q";
+    private static final String API_KEY = "PUT_API_KEY";
     private static final String URL_BY_FOOD_NAME =
         "https://api.nal.usda.gov/fdc/v1/foods/search?query=%s&requireAllWords=true&api_key="
             + API_KEY;
