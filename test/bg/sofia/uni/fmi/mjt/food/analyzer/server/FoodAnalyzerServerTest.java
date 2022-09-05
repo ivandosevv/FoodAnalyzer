@@ -1,3 +1,4 @@
+
 package bg.sofia.uni.fmi.mjt.food.analyzer.server;
 
 import bg.sofia.uni.fmi.mjt.food.analyzer.server.cache.FoodCache;
@@ -10,7 +11,7 @@ import org.mockito.Mock;
 
 import java.io.File;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 //import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,50 +43,32 @@ public class FoodAnalyzerServerTest {
 
     @Test
     public void testGetFoodByValidName() {
-        String input = "get-food beef noodle soup";
+        String input = "get-food christmas";
 
-        /*FoodQueryReport food = HttpRequestFood.GetFoodProduct("https://api.nal.usda.gov/fdc/v1/foods/" +
-            "search?query=christmas&requireAllWords=true&api_key=b6S0aW1Vi3qc0LCVcmGxhjKTbmcrsIAZPMGA6X8q");*/
-        int expected = 50;
-
-        assertEquals(FoodAnalyzerServer.startServer(input, filename).getFoods().size(), expected);
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("christmas"));
     }
 
     @Test
     public void testGetFoodThatHasAlreadyBeenAdded() {
         String input = "get-food beef noodle soup";
 
-        int expected = 50;
-
-        assertEquals(FoodAnalyzerServer.startServer(input, filename).getFoods().size(), expected);
-        assertEquals(FoodAnalyzerServer.startServer(input, filename), null);
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("soup"));
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("soup"));
     }
 
     @Test
     public void testGetFoodReportValid() {
         String input = "get-food-report 415987";
 
-        int expected = 1;
-
-        assertEquals(FoodAnalyzerServer.startServer(input, filename).getFoods().size(), expected);
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("415987"));
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("415987"));
     }
 
     @Test
     public void testGetFoodByBarcodeValid() {
         String input = "get-food-by-barcode --code=07622210164018";
-        int expected = 1;
 
-        assertEquals(FoodAnalyzerServer.startServer(input, filename).getFoods().size(), expected);
-    }
-
-    @Test
-    public void testGetFoodByBarcodeImageValid() {
-        String input = "get-food-by-barcode --img=https://raw.githubusercontent.com/fmi/java-course/" +
-            "master/course-projects/images/upc-barcode.gif";
-
-        int expected = 1;
-
-        assertEquals(FoodAnalyzerServer.startServer(input, filename).getFoods().size(), expected);
+        assertTrue(FoodAnalyzerServer.startServer(input, filename).toLowerCase().contains("07622210164018"));
     }
 
     @Test
@@ -93,8 +76,8 @@ public class FoodAnalyzerServerTest {
         String firstInput = "get-food-by-barcode --img=https://raw.githubusercontent.com/fmi/java-course/master/" +
             "course-projects/images/upc-barcode.gif --code=009800146130";
 
-        int expected = 1;
-        assertEquals(FoodAnalyzerServer.startServer(firstInput, filename).getFoods().size(), expected);
+        assertTrue(FoodAnalyzerServer.startServer(firstInput, filename).toLowerCase().contains("009800146130"));
+        assertTrue(FoodAnalyzerServer.startServer(firstInput, filename).toLowerCase().contains("009800146130"));
     }
 
     @Test
@@ -102,26 +85,6 @@ public class FoodAnalyzerServerTest {
         String secondInput = "get-food-by-barcode --code=009800146130 --img=https://raw.githubusercontent.com/" +
             "fmi/java-course/master/course-projects/images/upc-barcode.gif";
 
-        int expected = 1;
-        assertEquals(FoodAnalyzerServer.startServer(secondInput, filename).getFoods().size(), expected);
-    }
-
-    @Test
-    public void testGetFoodByImageAndSomethingElseReversed() {
-        String firstInput = "get-food-by-barcode --img=https://raw.githubusercontent.com/fmi/java-course/master/" +
-            "course-projects/images/upc-barcode.gif --somethingElse=somethingElse";
-
-        int expected = 1;
-        assertEquals(FoodAnalyzerServer.startServer(firstInput, filename).getFoods().size(), expected);
-    }
-
-    @Test
-    public void testGetFoodByImageAndSomethingElseValidReversed() {
-        String secondInput = "get-food-by-barcode --somethingElse=somethingElse --img=https://raw.githubusercontent." +
-            "com/fmi/java-course/master/course-projects/images/upc-barcode.gif";
-
-        int expected = 1;
-
-        assertEquals(FoodAnalyzerServer.startServer(secondInput, filename).getFoods().size(), expected);
+        assertTrue(FoodAnalyzerServer.startServer(secondInput, filename).contains("009800146130"));
     }
 }

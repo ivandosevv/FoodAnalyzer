@@ -19,4 +19,16 @@ public class FoodQueryReport {
     public List<FoodProduct> getFoods() {
         return Collections.unmodifiableList(this.foods);
     }
+
+    @Override
+    public String toString() {
+        StringBuffer buf = new StringBuffer();
+
+        for (FoodProduct food: foods) {
+            buf.append(food.humanReadable());
+            buf.append(System.lineSeparator());
+        }
+
+        return buf.toString();
+    }
 }

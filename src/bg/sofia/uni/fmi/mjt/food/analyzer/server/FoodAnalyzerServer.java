@@ -4,25 +4,17 @@ import bg.sofia.uni.fmi.mjt.food.analyzer.server.cache.FoodCache;
 import bg.sofia.uni.fmi.mjt.food.analyzer.server.dto.FoodProduct;
 import bg.sofia.uni.fmi.mjt.food.analyzer.server.dto.FoodQueryReport;
 import bg.sofia.uni.fmi.mjt.food.analyzer.server.http.HttpRequestFood;
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.LuminanceSource;
-import com.google.zxing.NotFoundException;
-import com.google.zxing.MultiFormatReader;
-import com.google.zxing.Result;
-import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
-import com.google.zxing.common.HybridBinarizer;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class FoodAnalyzerServer {
     private static final String DELIMITER = "%20";
@@ -30,18 +22,93 @@ public class FoodAnalyzerServer {
     private static final String URL_BY_FOOD_NAME =
         "https://api.nal.usda.gov/fdc/v1/foods/search?query=%s&requireAllWords=true&api_key="
             + API_KEY;
-
     private static final String URL_BY_FDC_ID = "https://api.nal.usda.gov/fdc/v1/food/%s?api_key=" +
         API_KEY;
-
     private static final String URL_BY_GTIN_UPC = "https://api.nal.usda.gov/fdc/v1/foods/search?api_key="
         + API_KEY + "&query=%s";
+    private static Map<String, FoodProduct> foodsCacheName = new HashMap<>();
+    private static Map<Integer, FoodProduct> foodsCacheFdc = new HashMap<>();
+    private static Map<String, FoodProduct> foodsCacheGtin = new HashMap<>();
+    public static final int SERVER_PORT = 7777;
+    private static final String SERVER_HOST = "localhost";
+    private static final int BUFFER_SIZE = 2048;
 
-    private static final List<FoodProduct> FOODS_CACHE = new ArrayList<>();
+    public static void main(String[] args) {
+        execute();
+    }
 
-    private static final int LOCALHOST = 8080;
+    public static void execute() {
+        try (ServerSocketChannel serverSocketChannel = ServerSocketChannel.open()) {
+            serverSocketChannel.bind(new InetSocketAddress(SERVER_HOST, SERVER_PORT));
+            serverSocketChannel.configureBlocking(false);
 
-    public static FoodQueryReport startServer(String input, String filename) {
+            Selector selector = Selector.open();
+            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
+
+            while (true) {
+                int readyChannels = selector.select();
+                if (readyChannels == 0) {
+                    continue;
+                }
+                Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                Iterator<SelectionKey> keyIterator = selectedKeys.iterator();
+
+                while (keyIterator.hasNext()) {
+                    SelectionKey key = keyIterator.next();
+                    if (key.isReadable()) {
+                        SocketChannel sc = (SocketChannel) key.channel();
+
+                        buffer.clear();
+                        int r = sc.read(buffer);
+                        if (r < 0) {
+                            System.out.println("Client has closed the connection");
+                            sc.close();
+                            continue;
+                        }
+                        buffer.flip();
+
+                        byte[] clientBytes = new byte[buffer.remaining()];
+                        buffer.get(clientBytes);
+
+                        String clientInput = new String(clientBytes, StandardCharsets.UTF_8);
+                        String result = startServer(clientInput, "resources/products.txt");
+
+                        if (result.length() > BUFFER_SIZE) {
+                            String[] toGet = result.split(System.lineSeparator());
+                            StringBuilder sb = new StringBuilder();
+
+                            for (String curr : toGet) {
+                                if (sb.length() + curr.length() + System.lineSeparator().length() < BUFFER_SIZE) {
+                                    sb.append(curr);
+                                    sb.append(System.lineSeparator());
+                                } else {
+                                    break;
+                                }
+                            }
+                            result = sb.toString();
+                        }
+                        buffer.clear();
+                        buffer.put(result.getBytes(StandardCharsets.UTF_8));
+                        buffer.flip();
+                        sc.write(buffer);
+                    } else if (key.isAcceptable()) {
+                        ServerSocketChannel sockChannel = (ServerSocketChannel) key.channel();
+                        SocketChannel accept = sockChannel.accept();
+                        accept.configureBlocking(false);
+                        accept.register(selector, SelectionKey.OP_READ);
+                    }
+
+                    keyIterator.remove();
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("There is a problem with the server socket", e);
+        }
+    }
+
+    public static String startServer(String input, String filename) {
         String[] splitInput = input.split(" ");
         String command = splitInput[0];
         splitInput = removeFirstElement(splitInput);
@@ -50,37 +117,32 @@ public class FoodAnalyzerServer {
         if (command.equalsIgnoreCase("get-food-by-barcode")) {
             String[] gtinUpcArray = new String[1];
             gtinUpcArray[0] = splitInput[0].split("=")[1];
-            validInfoAboutProduct = getInfoAboutProduct(gtinUpcArray, filename);
+            validInfoAboutProduct = getInfoAboutProductByGtin(gtinUpcArray[0], filename);
+        } else if (command.equalsIgnoreCase("get-food-report")) {
+            validInfoAboutProduct = getInfoAboutProductByFdc(Integer.parseInt(splitInput[0]), filename);
         } else {
-            validInfoAboutProduct = getInfoAboutProduct(splitInput, filename);
+            validInfoAboutProduct = getInfoAboutProductByName(splitInput, filename);
         }
 
         if (!validInfoAboutProduct.equals("")) {
             System.out.println(validInfoAboutProduct);
-            return null;
+            return validInfoAboutProduct;
         }
 
-        FoodCache.loadCache(FOODS_CACHE);
-        try (ServerSocket serverSocket = new ServerSocket(LOCALHOST)) {
-            //System.out.println("SUCCESS!!");
+        FoodCache.loadCache(foodsCacheFdc, foodsCacheGtin, foodsCacheName);
 
-            //Socket socket = serverSocket.accept();
-
-            switch (command.toLowerCase()) {
-                case "get-food": {
-                    return getFoodByName(splitInput, filename);
-                }
-                case "get-food-report": {
-                    return getFoodReport(splitInput, filename);
-                }
-                case "get-food-by-barcode": {
-                    return getFoodByBarcode(splitInput, filename);
-                }
+        switch (command.toLowerCase()) {
+            case "get-food": {
+                return getFoodByName(splitInput, filename).toString();
             }
-
-        } catch (IOException e) {
-            System.err.println("Invalid input! Enter a valid command!");
+            case "get-food-report": {
+                return getFoodReport(splitInput, filename).toString();
+            }
+            case "get-food-by-barcode": {
+                return getFoodByBarcode(splitInput, filename).toString();
+            }
         }
+
 
         return null;
     }
@@ -128,72 +190,24 @@ public class FoodAnalyzerServer {
                 result = getFoodQueryByCode(firstProperInput[first], filename);
             } else if (secondProperInput[0].equalsIgnoreCase("--code")) {
                 result = getFoodQueryByCode(secondProperInput[first], filename);
-            } else if (firstProperInput[0].equalsIgnoreCase("--img")) {
-                result = getFoodQueryByImg(firstProperInput[first], input[0], filename);
-            } else if (secondProperInput[0].equalsIgnoreCase("--img")) {
-                result = getFoodQueryByImg(secondProperInput[first], input[first], filename);
             }
         } else {
             String[] properInput = input[0].split("=");
-            if (properInput[0].equalsIgnoreCase("--img")) {
-                result = getFoodQueryByImg(properInput[1], input[0], filename);
-            } else if (properInput[0].equalsIgnoreCase("--code")) {
+            if (properInput[0].equalsIgnoreCase("--code")) {
                 result = getFoodQueryByCode(properInput[1], filename);
             }
         }
-
         return result;
     }
 
     private static FoodQueryReport getFoodQueryByCode(String gtinUpc, String filename) {
-        FoodQueryReport result = new FoodQueryReport();
-        //String gtinUpc = properInput[1];
-
         String resultUrl = String.format(URL_BY_FOOD_NAME, gtinUpc);
 
-        result = HttpRequestFood.getFoodProduct(resultUrl);
+        FoodQueryReport result = HttpRequestFood.getFoodProduct(resultUrl);
 
         for (FoodProduct curr : result.getFoods()) {
             addNewProduct(curr, filename);
             System.out.println(curr.humanReadable());
-        }
-
-        return result;
-    }
-
-    private static FoodQueryReport getFoodQueryByImg(String path, String imageQuery, String filename) {
-        FoodQueryReport result = new FoodQueryReport();
-        final int substringStart = 6;
-        try {
-            String imageUrl = imageQuery.substring(substringStart);
-            File file = null;
-            if (path.substring(0, substringStart - 1).equalsIgnoreCase("https")) {
-                //We're using an online link
-                URL url = new URL(imageUrl);
-                BufferedImage img = ImageIO.read(url);
-                file = new File("resources/barcode.gif");
-                ImageIO.write(img, "gif", file);
-            } else {
-                file = new File(imageUrl);
-            }
-
-            String decodedText = decodeBarcode(file);
-
-            if (decodedText == null) {
-                System.out.println("No QR code could be found.");
-            } else {
-                String resultUrl = String.format(URL_BY_GTIN_UPC, decodedText);
-                System.out.println(resultUrl);
-
-                result = HttpRequestFood.getFoodProduct(resultUrl);
-
-                for (FoodProduct curr : result.getFoods()) {
-                    addNewProduct(curr, filename);
-                    System.out.println(curr.humanReadable());
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Could not decode Barcode");
         }
 
         return result;
@@ -209,24 +223,12 @@ public class FoodAnalyzerServer {
         return newArr;
     }
 
-    private static String decodeBarcode(File barcodeImage) throws IOException {
-        BufferedImage bufferedImage = ImageIO.read(barcodeImage);
-        LuminanceSource source = new BufferedImageLuminanceSource(bufferedImage);
-        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-        try {
-            Result result = new MultiFormatReader().decode(bitmap);
-            return result.getText();
-        } catch (NotFoundException e) {
-            System.out.println("There is no QR code in the image");
-            return null;
-        }
-    }
-
     public static FoodProduct addNewProduct(FoodProduct foodProduct, String filename) {
         try (FileWriter writer = new FileWriter(filename, true)) {
             synchronized (writer) {
-                FOODS_CACHE.add(foodProduct);
+                foodsCacheFdc.putIfAbsent(foodProduct.getFdcId(), foodProduct);
+                foodsCacheName.putIfAbsent(foodProduct.getDescription(), foodProduct);
+                foodsCacheGtin.putIfAbsent(foodProduct.getGtinUpc(), foodProduct);
                 writer.write(foodProduct.toString());
                 System.out.println("Successfully added: " + foodProduct.getDescription());
 
@@ -238,47 +240,35 @@ public class FoodAnalyzerServer {
         return foodProduct;
     }
 
-    public static String getInfoAboutProduct(String[] keyWords, String filename) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
-            String line = reader.readLine();
-            while (line != null) {
-                boolean containsFdcId = true;
-                boolean containsDescription = true;
-                boolean containsGtinUpc = true;
-                String[] properties = line.split("&&");
-                String currDescription = properties[1].toLowerCase();
-                String currFdcId = properties[0];
-                final int gtinIndex = 3;
-                String currGtinUpc = properties[gtinIndex];
+    public static String getInfoAboutProductByGtin(String keyWord, String filename) {
+        if (foodsCacheGtin.containsKey(keyWord)) {
+            return foodsCacheGtin.get(keyWord).humanReadable();
+        }
 
-                if (!currGtinUpc.equals(keyWords[0])) {
-                    containsGtinUpc = false;
+        return "";
+    }
+
+    public static String getInfoAboutProductByFdc(Integer keyWord, String filename) {
+        if (foodsCacheFdc.containsKey(keyWord)) {
+            return foodsCacheFdc.get(keyWord).humanReadable();
+        }
+
+        return "";
+    }
+
+    public static String getInfoAboutProductByName(String[] keyWords, String filename) {
+        int counter = 0;
+
+        for (Map.Entry<String, FoodProduct> entry: foodsCacheName.entrySet()) {
+            for (String key: keyWords) {
+                if (entry.getKey().toLowerCase().contains(key.toLowerCase())) {
+                    counter++;
                 }
-
-                if (!currFdcId.equals(keyWords[0])) {
-                    containsFdcId = false;
-                }
-
-                for (String keyWord : keyWords) {
-                    if (!currDescription.contains(keyWord.toLowerCase())) {
-                        containsDescription = false;
-                        break;
-                    }
-                }
-
-                if (containsFdcId || containsDescription || containsGtinUpc) {
-                    int index = 0;
-                    FoodProduct toReturn = new FoodProduct(Integer.parseInt(properties[index++]), properties[index++],
-                        properties[index++], properties[index++], properties[index++], properties[index++],
-                        properties[index++], Double.parseDouble(properties[index]));
-
-                    return toReturn.humanReadable();
-                }
-
-                line = reader.readLine();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+
+            if (counter == keyWords.length) {
+                return entry.getValue().humanReadable();
+            }
         }
 
         return "";

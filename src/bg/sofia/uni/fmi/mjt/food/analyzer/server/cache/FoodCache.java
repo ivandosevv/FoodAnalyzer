@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -17,7 +18,8 @@ public class FoodCache {
 
     }
 
-    public static void loadCache(List<FoodProduct> foodsCache) {
+    public static void loadCache(Map<Integer, FoodProduct> foodsCacheFdc, Map<String, FoodProduct> foodsCacheGtin,
+                                 Map<String, FoodProduct> foodsCacheName) {
         List<String> linesResult = new ArrayList<>();
 
         try (Stream<String> currLines = Files.lines(Paths.get(CACHE_PATH))) {
@@ -43,7 +45,9 @@ public class FoodCache {
             FoodProduct currFood = new FoodProduct(fdcId, description, dataType, gtinUpc, publishedDate, brandOwner,
                 ingredients, score);
 
-            foodsCache.add(currFood);
+            foodsCacheFdc.put(fdcId, currFood);
+            foodsCacheName.put(currFood.getDescription(), currFood);
+            foodsCacheGtin.put(currFood.getGtinUpc(), currFood);
         }
     }
 }

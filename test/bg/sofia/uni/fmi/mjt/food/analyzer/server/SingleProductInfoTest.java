@@ -5,13 +5,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SingleProductInfoTest {
     private static SingleProductInfo product;
 
     @BeforeAll
     private static void setUp() {
-        product = new SingleProductInfo(1461113, "2021-03-19", -57.52143);
+        product = new SingleProductInfo(1461113, "MILKA CHOCOLATE BAR OREO 1X1.44 OZ",
+            "00070221007201", "2021-03-19", -57.52143);
     }
 
     @Test
@@ -27,5 +29,7 @@ public class SingleProductInfoTest {
         assertEquals(product.getFdcId(), fdcId);
         assertEquals(product.getPublicationDate(), publicationDate);
         assertEquals(product.getCalories(), value);
+
+        assertTrue(product.humanReadable().toLowerCase().contains("1461114"));
     }
 }
